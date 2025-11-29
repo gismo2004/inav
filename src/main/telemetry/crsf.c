@@ -321,7 +321,7 @@ Payload:
 uint8_t    rpm_source_id;  // Identifies the source of the RPM data (e.g., 0 = Motor 1, 1 = Motor 2, etc.)
 int24_t    rpm_value[];     // 1 - 19 RPM values with negative ones representing the motor spinning in reverse
 */
-static void crsfRpm(sbuf_t *dst)
+static bool crsfRpm(sbuf_t *dst)
 {
     uint8_t motorCount = getMotorCount();
 
@@ -335,7 +335,9 @@ static void crsfRpm(sbuf_t *dst)
             const escSensorData_t *escState = getEscTelemetry(i);
             crsfSerialize24(dst, (escState) ? escState->rpm : 0);
         }
+        return true;
     }
+    return false;
 }
 #endif
 
@@ -345,7 +347,7 @@ Payload:
 uint8_t temp_source_id; // Identifies the source of the temperature data (e.g., 0 = FC including all ESCs, 1 = Ambient, etc.)
 int16_t temperature[]; // up to 20 temperature values in deci-degree (tenths of a degree) Celsius (e.g., 250 = 25.0°C, -50 = -5.0°C)
 */
-static void crsfTemperature(sbuf_t *dst)
+static bool crsfTemperature(sbuf_t *dst)
 {
 
     uint8_t tempCount = 0;
@@ -376,7 +378,9 @@ static void crsfTemperature(sbuf_t *dst)
         crsfSerialize8(dst, 0);
         for (uint8_t i = 0; i < tempCount; i++)
             crsfSerialize16(dst, temperatures[i]);
+        return true;
     }
+    return false;
 }
 
 typedef enum {
@@ -596,15 +600,17 @@ static void processCrsf(void)
 #ifdef USE_ESC_SENSOR
     if (currentSchedule & BV(CRSF_FRAME_RPM_INDEX)) {
         crsfInitializeFrame(dst);
-        crsfRpm(dst);
-        crsfFinalize(dst);
+        if (crsfRpm(dst)) {
+            crsfFinalize(dst);
+        }
     }
 #endif
 #if defined(USE_ESC_SENSOR) || defined(USE_TEMPERATURE_SENSOR)
     if (currentSchedule & BV(CRSF_FRAME_TEMP_INDEX)) {
         crsfInitializeFrame(dst);
-        crsfTemperature(dst);
-        crsfFinalize(dst);
+        if (crsfTemperature(dst)) {
+            crsfFinalize(dst);
+        }
     }
 #endif
 #ifdef USE_GPS
